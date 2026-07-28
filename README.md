@@ -23,13 +23,11 @@
 
 | ファイル | サイズ | 役割 |
 |---|---|---|
+| `.claude/commands/mkp-status.md` | 2,400 B | マーケプロモ業務の全体進捗を実体照合を踏まえて要約 |
 | `.claude/commands/mkp-blockers.md` | 2,992 B | AGENT_STATE.md のHITL状態を確認し処置候補を提示 |
 | `.claude/commands/mkp-ledger.md` | 4,060 B | 版付き正本の現行版を実体照合で確定 |
 
-## 未収録
-
-- `mkp-status.md`（指示書B②の3件目・宣言SHA256 `53cdcd9f...`・2,400 B）は未アップロードのため未収録。
-  受領後に `.claude/commands/mkp-status.md` へ追加すること。
+指示書B v1.4 が対象とするスラッシュコマンド3本すべてを収録済み。
 
 ## 照合記録
 
