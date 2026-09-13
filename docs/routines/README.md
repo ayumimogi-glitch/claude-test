@@ -47,9 +47,26 @@ Routines の作成フォームでは、claude.ai に接続済みのコネクタ�
 
 ### 既にある Routine を直す場合
 
-1. https://claude.ai/code/routines で対象の Routine を開く
-2. 鉛筆アイコンを押して「Edit routine」を開く
-3. 名前、プロンプト、リポジトリ、環境、コネクタ、トリガーを変更できる
+1. https://claude.ai/code/routines を開く
+2. 対象の Routine の**カードをクリック**して詳細画面を開く。
+   鉛筆アイコンは一覧画面には無く、詳細画面にある
+3. 詳細画面の鉛筆アイコンを押して「Edit routine」を開く
+4. 名前、プロンプト、リポジトリ、環境、コネクタ、トリガーを変更できる
+5. 詳細画面の「Repeats」のトグルで、一時停止と再開を切り替える
+
+### この画面に出るもの、出ないもの
+
+2026/09/14 に実機で確認したところ、claude.ai/code/routines の一覧に出るのは
+Claude Code のルーティンだけである。Cowork のスケジュールタスクはこの一覧に出ず、
+Cowork 側の画面で管理する。
+
+同日の確認時点で、この一覧に出ていたのは次の2件である。
+
+- OneDrive daily change log（アクティブ、毎日9:00）
+- [CODE] 工数集計 月次レポート（一時停止中、毎月2日9:00）
+
+OneDrive daily change log は Cowork 側ではなく Claude Code 側のルーティンであり、
+この画面から直接編集できる。
 
 ### 切り替え時の注意
 
