@@ -148,15 +148,41 @@ CONTENTS の供給元は現在空であり、その場合 Content Gap の判定�
 
 ## 4. Routine を CODE へ移す手順
 
-1. 対象の Routine を Cowork 側で無効にする（削除しない。切り戻せるようにする）
-2. CODE 環境（`env_018Vn3RidJiDubEoadwZzWVT`、Default、trusted network access）を
-   指す Routine を新規に作る。毎回まっさらなセッションで動かす設定にする
-3. 新しい Routine のプロンプトには、次の3点を必ず書く
-   - このリポジトリを clone し、該当ジョブのテストを先に走らせること
-   - コネクタで取得したデータをファイルへ落とし、スクリプトへ渡すこと
-   - 数値はスクリプトの出力をそのまま使い、文章を書くときに数え直さないこと
-4. 1回目は並走させない。移行前後で二重に成果物が作られる事故を避ける
-5. 2回から3回動かして結果が安定してから、Cowork 側の Routine を削除するか判断する
+### 4.1 実測で判明した制約
+
+エージェント（Claude）が `create_trigger` で作った Routine は、この組織では
+コネクタを持てない。2026/09/14 に実際に作成したところ、次の警告が返った。
+
+```
+warning: this trigger stores no MCP connectors, so the sessions it fires will run
+without connector (mcp__<server>__*) tools.
+```
+
+`connectors` パラメータを明示すると、次のエラーで拒否される。
+
+```
+create_trigger: the connectors parameter is not available for this organization.
+```
+
+コネクタ無しでは、4件のジョブはいずれも入力を取得できず必ず失敗する。
+したがって、CODE 環境の Routine は claude.ai の Routines 画面から人が作る必要がある。
+
+なお、2026/09/14 の切り替え試行では、Cowork 側の4件のうち3件を一時的に無効化したが、
+上記の制約が判明したため、同日中にすべて元の有効な状態へ戻している。
+OneDrive daily change log は http_api 経由で作られており、
+エージェントからは変更できなかったため、終始有効なままである。
+
+### 4.2 人が行う手順
+
+1. `docs/routines/` の各ファイルを開く。Routines 画面へ貼り付ける本文が入っている
+2. claude.ai の Routines 画面で新規 Routine を作る
+3. 実行環境に CODE 環境（`env_018Vn3RidJiDubEoadwZzWVT`、Default、trusted network access）を選ぶ
+4. 毎回まっさらなセッションで動かす設定にする
+5. 各ファイルに書いてあるスケジュールとコネクタを設定に写す
+6. プロンプト本文をそのまま貼り付ける
+7. 対応する Cowork 側の Routine を無効にする（削除しない。切り戻せるようにする）
+8. 1回目は並走させない。移行前後で二重に成果物が作られる事故を避ける
+9. 2回から3回動かして結果が安定してから、Cowork 側を削除するか判断する
 
 ## 5. この検討の限界
 
