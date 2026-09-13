@@ -59,9 +59,12 @@ build() {
     exit 1
   fi
 
+  # playwright が無い環境でも検査工程まで到達させる。導入に失敗した場合、
+  # ブラウザ検査は判定不能として記録され、他の検査は通常どおり行われる
   python3 -c "import playwright" 2>/dev/null || {
     echo "playwright を導入します（ブラウザは同梱のものを使う）"
-    pip install --quiet playwright
+    pip install --quiet playwright || \
+      echo "playwright を導入できませんでした。ブラウザ検査は判定不能になります。" >&2
   }
 
   ( cd "$skill" && \

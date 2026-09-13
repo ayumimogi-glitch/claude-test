@@ -211,7 +211,14 @@ def check_browser(res, work_dir):
 
     with sync_playwright() as pw:
         kw = {"executable_path": exe} if exe else {}
-        browser = pw.chromium.launch(**kw)
+        try:
+            browser = pw.chromium.launch(**kw)
+        except Exception as e:
+            # 実行環境に chromium が無い場合がある。検査を落とさず判定不能として残す。
+            # 黙って合格にしないことが要点である
+            res.add("JSエラー", None, "chromium を起動できず判定不能（%s）" % type(e).__name__)
+            res.add("横スクロール", None, "chromium を起動できず判定不能")
+            return
         for variant in VARIANTS:
             path = os.path.join(work_dir, "repro_a_%s.html" % variant)
             if not os.path.exists(path):
