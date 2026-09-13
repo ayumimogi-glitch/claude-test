@@ -17,17 +17,46 @@ without connector (mcp__<server>__*) tools.
 したがって、CODE 環境の Routine は claude.ai の Routines 画面から人が作る必要がある。
 このディレクトリのファイルは、その画面へ貼り付けるための本文である。
 
-## 作り方
+## 作り方（2026/09/14 時点の公式ドキュメントに基づく）
 
-1. claude.ai の Routines 画面を開く
-2. 新規 Routine を作る
-3. 実行環境に CODE 環境（Default、trusted network access）を選ぶ
-4. 毎回新しいセッションで動かす設定にする
-5. 各ファイルの「スケジュール」と「必要なコネクタ」を設定に写す
-6. 各ファイルの「プロンプト本文」以下をそのまま貼り付ける
-7. 同じ内容の Cowork 側 Routine を無効にする（削除しない。切り戻せるようにする）
+出典: Claude Code ドキュメント「Automate work with routines」
+https://code.claude.com/docs/en/routines
 
-Cowork 側と CODE 側を同時に有効にしないこと。成果物が二重に作られる。
+### コネクタについての前提
+
+Routines の作成フォームでは、claude.ai に接続済みのコネクタが**既定ですべて含まれる**。
+つまり、探して追加する操作は通常は要らない。フォーム下部の「Connectors」節で、
+このジョブに要らないものを外すだけでよい。必要なら同じ節から追加もできる。
+
+コネクタそのものの接続や管理は https://claude.ai/customize/connectors で行う。
+
+### 新規に作る場合
+
+1. https://claude.ai/code/routines を開き、「New routine」を押す
+2. 名前と、各ファイルの「プロンプト本文」を入れる（プロンプト欄にモデル選択もある）
+3. リポジトリに `ayumimogi-glitch/claude-test` を選ぶ。実行のたびに既定ブランチが clone される
+4. 環境に Default（Trusted network access）を選ぶ
+5. 「Select a trigger」で Schedule を選び、各ファイルのスケジュールを入れる。
+   時刻はローカル時間で入れると自動でUTCへ変換される。毎月2日のような
+   プリセットに無い間隔は、近いプリセットを選んでから CLI の `/schedule update` で
+   cron 式を設定する
+6. 下部の「Connectors」節を確認し、各ファイルに書いてあるコネクタが含まれていることを
+   確かめる。要らないものは外す
+7. 「Create」を押す
+8. 詳細画面の「Run now」で、スケジュールを待たずに1回試せる
+
+### 既にある Routine を直す場合
+
+1. https://claude.ai/code/routines で対象の Routine を開く
+2. 鉛筆アイコンを押して「Edit routine」を開く
+3. 名前、プロンプト、リポジトリ、環境、コネクタ、トリガーを変更できる
+
+### 切り替え時の注意
+
+- Cowork 側の同じ処理は、Cowork のスケジュールタスク画面で無効にする（削除しない）
+- Cowork 側と CODE 側を同時に有効にしないこと。成果物が二重に作られる
+- 実行一覧の緑表示は「セッションが異常終了しなかった」ことだけを意味する。
+  中身が成功したかは実行を開いて確かめる
 
 ## ファイル一覧
 
