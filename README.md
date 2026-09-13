@@ -39,3 +39,17 @@
 - これらのファイルは元々macOS専用スクリプト（指示書A・B・C）で二拠点保存する運用を前提としています。
   Mac上での正規保存が必要な場合は、Mac上のローカルClaude Codeで各指示書のStep 1スクリプトを実行してください。
 - `AGENT_STATE.md` は版番号を持たず常に上書き更新する運用実体ファイルです。
+
+## スケジュールタスクの CODE 移行
+
+Cowork のスケジュールタスクのうち、決定的な処理を CODE 側へ移したものを `jobs/` に置いています。
+検討と実測の結果、および移行手順は `docs/cowork_to_code_migration.md` にまとめています。
+
+| ディレクトリ | 内容 |
+|---|---|
+| `jobs/inquiry_dashboard/` | 問い合わせ分析ダッシュボードの生成と出口検査 |
+| `jobs/kousuu_shukei/` | 工数集計の月次レポート生成 |
+| `jobs/onedrive_changelog/` | OneDrive 日次変更ログの生成 |
+| `jobs/inquiry_csv/` | 問い合わせ台帳CSVへの追記 |
+
+実データ（顧客名・業績値・問い合わせ台帳）はコミットしません。`.gitignore` で除外しています。
