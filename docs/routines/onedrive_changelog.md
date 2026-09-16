@@ -4,7 +4,7 @@
 - スケジュール: 毎日 09:00（JST）。cron では `0 0 * * *`（UTC）
 - 実行環境: CODE（Default、trusted network access）
 - 毎回新しいセッションで動かす
-- 必要なコネクタ: Microsoft 365、Box
+- 必要なコネクタ: Microsoft 365、Box、Google Drive（実行結果の保存に使う）
 - 置き換える Cowork 側 Routine: OneDrive daily change log
 
 ## 移行前に決めること
@@ -40,6 +40,7 @@ else
 fi
 mkdir -p "$REPO/work"
 python3 "$REPO/jobs/onedrive_changelog/test_build_change_log.py"
+python3 "$REPO/jobs/status_report/test_write_run_result.py"
 ```
 
 テストが失敗した場合は、集計へ進まず「回帰テストが失敗したため中止」と失敗内容を添えて報告し、終了します。
@@ -81,6 +82,36 @@ python3 "$REPO/jobs/onedrive_changelog/build_change_log.py" \
 出力したCSVのファイル名、行数、変更種別ごとの内訳を報告します。スクリプトが出力した注記（スナップショット無し、削除記録の取得可否）もそのまま添えます。
 
 CSVの受け渡し先が決まっている場合は、その手順に従って置きます。決まっていない場合は、CSVを会話へ届けます。
+
+## 実行結果を残す
+
+統合レポートの集約は、各タスクが実行結果を1つのJSONで残していないと、実行しなかった場合と区別が付きません。成功したときだけでなく、中止したときと失敗したときも必ず残してください。
+
+形はリポジトリのスクリプトに固定されています。JSONを手で書かないでください。
+
+成功したとき。
+
+```
+python3 "$REPO/jobs/status_report/write_run_result.py" \
+  --task onedrive-changelog --environment CODE --status normal \
+  --output "会話へ届けた変更ログCSV" --output-count 1 \
+  --out "$REPO/work/run_result.json"
+```
+
+中止したとき、失敗したとき。
+
+```
+python3 "$REPO/jobs/status_report/write_run_result.py" \
+  --task onedrive-changelog --environment CODE --status aborted \
+  --decision-title "短い表題" --decision-detail "何が起きたか" \
+  --out "$REPO/work/run_result.json"
+```
+
+status は normal、aborted、failed のいずれかです。出口の条件を満たさず途中でやめた場合は aborted、途中で失敗した場合は failed です。スナップショットが無く移動と名称変更を判定できなかった場合も status は normal とし、--note にその制約を入れます。判定できなかったことは失敗ではありません。
+
+書き出したら、Google Drive コネクタで「Claude実行状況_受け渡し」フォルダへアップロードします。ファイル名は `YYYY-MM-DD_横断_実行結果_onedrive-changelog.json` です。先頭のYYYY-MM-DDは実行日です。同名がある場合は上書きします。
+
+アップロード後にフォルダを一覧し、ファイルが実在することを確認してください。確認できない場合は「実行結果の保存未確認」と報告し、成功と報告しないでください。
 
 ## 守ること
 

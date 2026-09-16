@@ -4,7 +4,7 @@
 - スケジュール: 毎日 09:00（JST）。cron では `0 0 * * *`（UTC）
 - 実行環境: CODE（Default、trusted network access）
 - 毎回新しいセッションで動かす
-- 必要なコネクタ: Microsoft 365、Box
+- 必要なコネクタ: Microsoft 365、Box、Google Drive（実行結果の保存に使う）
 - 置き換える Cowork 側 Routine: PROCENTER/ConforMeeting 問い合わせCSV 毎朝更新
 - 注意: 問い合わせ分析ダッシュボードの前に走る必要がある
 
@@ -28,6 +28,7 @@ else
 fi
 mkdir -p "$REPO/work"
 python3 "$REPO/jobs/inquiry_csv/test_merge_inquiry_csv.py"
+python3 "$REPO/jobs/status_report/test_write_run_result.py"
 ```
 
 テストが失敗した場合は、更新へ進まず「回帰テストが失敗したため中止」と失敗内容を添えて報告し、終了します。リポジトリを取得できない場合も、代替手段を試さず「リポジトリを取得できなかったため中止」と報告して終了します。
@@ -107,6 +108,36 @@ python3 "$REPO/jobs/inquiry_csv/merge_inquiry_csv.py" \
 ## 7. 報告する
 
 追記した件数と会社名一覧を簡潔に報告します。新規が無ければ「本日新規なし」と報告します。
+
+## 実行結果を残す
+
+統合レポートの集約は、各タスクが実行結果を1つのJSONで残していないと、実行しなかった場合と区別が付きません。成功したときだけでなく、中止したときと失敗したときも必ず残してください。
+
+形はリポジトリのスクリプトに固定されています。JSONを手で書かないでください。
+
+成功したとき。
+
+```
+python3 "$REPO/jobs/status_report/write_run_result.py" \
+  --task inquiry-csv --environment CODE --status normal \
+  --output "Box 03.問合せ の問い合わせ台帳CSV" --output-count 1 \
+  --out "$REPO/work/run_result.json"
+```
+
+中止したとき、失敗したとき。
+
+```
+python3 "$REPO/jobs/status_report/write_run_result.py" \
+  --task inquiry-csv --environment CODE --status aborted \
+  --decision-title "短い表題" --decision-detail "何が起きたか" \
+  --out "$REPO/work/run_result.json"
+```
+
+status は normal、aborted、failed のいずれかです。出口の条件を満たさず途中でやめた場合は aborted、途中で失敗した場合は failed です。新規が0件で追記しなかった場合も残します。その場合は status を normal のままとし、--note に「本日新規なし」と入れます。
+
+書き出したら、Google Drive コネクタで「Claude実行状況_受け渡し」フォルダへアップロードします。ファイル名は `YYYY-MM-DD_横断_実行結果_inquiry-csv.json` です。先頭のYYYY-MM-DDは実行日です。同名がある場合は上書きします。
+
+アップロード後にフォルダを一覧し、ファイルが実在することを確認してください。確認できない場合は「実行結果の保存未確認」と報告し、成功と報告しないでください。
 
 ## 守ること
 

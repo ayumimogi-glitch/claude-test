@@ -5,7 +5,7 @@
   月次が無いため、毎日 09:00（JST）で作り、プロンプト側で対象日以外は何もせず終える
 - 実行環境: CODE（Default、trusted network access）
 - 毎回新しいセッションで動かす
-- 必要なコネクタ: Google Calendar、Box
+- 必要なコネクタ: Google Calendar、Box、Google Drive（実行結果の保存に使う）
 - 置き換える Cowork 側 Routine: 工数集計 月次レポート（毎月2日9時）
 
 ## プロンプト本文（ここから下をそのまま貼り付ける）
@@ -28,6 +28,7 @@ else
 fi
 mkdir -p "$REPO/work"
 python3 "$REPO/jobs/kousuu_shukei/test_aggregate_kousuu.py"
+python3 "$REPO/jobs/status_report/test_write_run_result.py"
 ```
 
 テストが失敗した場合は、集計へ進まず「回帰テストが失敗したため中止」と失敗内容を添えて報告し、終了します。リポジトリを取得できない場合も、代替手段を試さず「リポジトリを取得できなかったため中止」と報告して終了します。
@@ -74,6 +75,36 @@ Box コネクタで、フォルダID 414799528232（個人作業/NES販促G/茂�
 保存前に list_folder_content_by_folder_id で同名ファイルの有無を確認してください。既にある場合は上書きせず、版を _v1_1 へ上げます。保存には upload_file を使います。
 
 保存後、同フォルダを再度一覧して、ファイルが実在することを確認してください。確認できない場合は「保存未確認」と報告し、成功と報告しないでください。
+
+## 実行結果を残す
+
+統合レポートの集約は、各タスクが実行結果を1つのJSONで残していないと、実行しなかった場合と区別が付きません。成功したときだけでなく、中止したときと失敗したときも必ず残してください。
+
+形はリポジトリのスクリプトに固定されています。JSONを手で書かないでください。
+
+成功したとき。
+
+```
+python3 "$REPO/jobs/status_report/write_run_result.py" \
+  --task kousuu-shukei --environment CODE --status normal \
+  --output "Box 05_AI作業ドラフト/工数集計_自動生成" --output-count 1 \
+  --out "$REPO/work/run_result.json"
+```
+
+中止したとき、失敗したとき。
+
+```
+python3 "$REPO/jobs/status_report/write_run_result.py" \
+  --task kousuu-shukei --environment CODE --status aborted \
+  --decision-title "短い表題" --decision-detail "何が起きたか" \
+  --out "$REPO/work/run_result.json"
+```
+
+status は normal、aborted、failed のいずれかです。出口の条件を満たさず途中でやめた場合は aborted、途中で失敗した場合は failed です。本日が対象日でないため何もしなかった場合も残します。その場合は status を normal、--output-count を 0 とし、--note に「本日は対象日ではないため実行していない」と入れます。
+
+書き出したら、Google Drive コネクタで「Claude実行状況_受け渡し」フォルダへアップロードします。ファイル名は `YYYY-MM-DD_横断_実行結果_kousuu-shukei.json` です。先頭のYYYY-MM-DDは実行日です。同名がある場合は上書きします。
+
+アップロード後にフォルダを一覧し、ファイルが実在することを確認してください。確認できない場合は「実行結果の保存未確認」と報告し、成功と報告しないでください。
 
 ## 守ること
 

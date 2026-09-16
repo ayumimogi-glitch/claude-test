@@ -33,14 +33,14 @@ https://raw.githubusercontent.com/ayumimogi-glitch/claude-test/claude/gallant-cl
 作成後に次を必ず確認し、報告してください。
 
 - 作られた Routine の ID（trig_ で始まる）
-- コネクタが引き継がれているか。少なくとも Box と Microsoft 365 が入っている必要がある
+- コネクタが引き継がれているか。少なくとも Box、Microsoft 365、Google Drive が入っている必要がある
 - 実行環境が `env_018Vn3RidJiDubEoadwZzWVT` になっているか
 - スケジュールが毎日 09:00（JST）になっているか
 
 コネクタが0件だった場合、その Routine は動きません。その場合は作成した Routine を
 いったん無効にし、コネクタが入らなかったことを明記して報告してください。
 
-## 他の2件を作る場合
+## 他の3件を作る場合
 
 上の依頼文の名前、スケジュール、URL を次のように差し替えてください。
 
@@ -50,16 +50,26 @@ https://raw.githubusercontent.com/ayumimogi-glitch/claude-test/claude/gallant-cl
 - スケジュール: 毎週火曜 10:00（JST）。cron では `0 1 * * 2`（UTC）
 - URL: https://raw.githubusercontent.com/ayumimogi-glitch/claude-test/claude/gallant-clarke-fkfp1x/docs/routines/inquiry_dashboard.md
 - 必要なコネクタ: Box、Google Drive
-- 注意: 生成物の Box 配置は人手が1回入る。移行前に docs/routines/README.md の
-  「移行前に決める必要がある2点」を読むこと
+- 注意: Box 配置は Mac のローカルスケジュールタスク inquiry-dashboard-local が
+  担うようにした（2026/09/16）。CODE 側と同時に有効にしないこと。成果物が二重に作られる
 
 ### OneDrive 日次変更ログ
 
 - 名前: OneDrive daily change log（CODE）
 - スケジュール: 毎日 09:00（JST）。cron では `0 0 * * *`（UTC）
 - URL: https://raw.githubusercontent.com/ayumimogi-glitch/claude-test/claude/gallant-clarke-fkfp1x/docs/routines/onedrive_changelog.md
-- 必要なコネクタ: Microsoft 365、Box
+- 必要なコネクタ: Microsoft 365、Box、Google Drive
 - 注意: 移動と名称変更の判定に制約がある。移行前に docs/routines/README.md を読むこと
+
+### 工数集計 月次レポート
+
+- 名前: 工数集計 月次レポート（毎月2日9時、CODE）
+- スケジュール: 毎日 09:00（JST）で作る。cron では `0 0 * * *`（UTC）。
+  Routines 画面のプリセットに月次が無いため、毎日起動し、対象日（毎月2日）以外は
+  プロンプト側で何もせず終える作りにしてある
+- URL: https://raw.githubusercontent.com/ayumimogi-glitch/claude-test/claude/gallant-clarke-fkfp1x/docs/routines/kousuu_shukei.md
+- 必要なコネクタ: Google Calendar、Box、Google Drive
+- 注意: Cowork 側でまだ一度も実行されていない。初回を CODE で組む方が手戻りが小さい
 
 ## 作成後に必ずやること
 
@@ -68,6 +78,9 @@ https://raw.githubusercontent.com/ayumimogi-glitch/claude-test/claude/gallant-cl
 2. コネクタが入っているかを確認する。0件なら動かない
 3. 対応する Cowork 側の Routine を無効にする（削除しない。切り戻せるようにする）
 4. 「今すぐ実行」で1回試し、結果を読んでから常用に移す
+5. Google Drive の「Claude実行状況_受け渡し」フォルダに
+   `YYYY-MM-DD_横断_実行結果_<タスク名>.json` が置かれたことを確認する。
+   これが無いと、統合レポートの集約からは実行しなかった場合と区別が付かない
 
 ## リポジトリを private にした場合
 
