@@ -44,7 +44,14 @@ prepare() {
   rm -rf "$work/inquiry-dashboard"
   cp -r "$src" "$work/inquiry-dashboard"
   echo "スキルの作業用コピーを作りました: $work/inquiry-dashboard"
+
+  # 上書き層を当てる。スキル正本はプラグインとして配られており直接書き換えられないため、
+  # 差分はリポジトリ側に置き、作業用コピーへここで当てる。
+  # 当たらないまま生成すると年商レンジの列が無い版ができるため、失敗したらここで止める。
+  python3 "$REPO_DIR/overrides/apply.py" "$work/inquiry-dashboard"
+
   echo "次の工程で config/market.json と config/contents.js.txt を差し替えてください。"
+  echo "年商レンジを使う場合は config/revenue.json も差し替えてください。"
 }
 
 build() {
