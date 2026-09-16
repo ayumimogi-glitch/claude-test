@@ -2,8 +2,11 @@
 
 問い合わせ分析ダッシュボードの生成・出口検査・Box配置を、Mac上のDesktopスケジュールタスクで行う。
 
-正本は マスターナレッジ の `claude/20260916_横断_ダッシュボードBox配置_Desktopタスク指示文_v1_4.md` である。
+正本は マスターナレッジ の `claude/20260916_横断_ダッシュボードBox配置_Desktopタスク指示文_v1_7.md` である。
 記述が食い違った場合は正本を優先する。
+
+このファイルは正本の第4章と第5章の写しである。Desktopスケジュールタスクの Instructions は
+Macのアプリ側の設定であり、このリポジトリからは書き換えられない。貼り直しは手作業になる。
 
 ## 設定値
 
@@ -14,10 +17,22 @@
 | Description | 問い合わせ分析ダッシュボードの生成・検査・Box Drive配置 |
 | 作業フォルダ | /Users/sekiayumi/claude-test |
 | worktree | 使わない |
-| Schedule | Weekly、火曜、11:00。最初は Manual にしておき、手動実行で確認してから切り替える |
+| Schedule | Weekly、火曜、11:00 |
 | Instructions | 下の「プロンプト本文」をそのまま入れる |
 
 火曜11時とする理由は、CODE側のMARKET更新が火曜10時に走るためである。その後に生成する必要がある。
+
+## 置き場所の整理
+
+| 呼び名 | パス |
+|---|---|
+| 作業フォルダ（BOXDIR） | Box Drive の 03.問合せ。market.json の置き場所 |
+| 出力フォルダ（OUTDIR） | BOXDIR 配下の「問い合わせダッシュボード」。CSV・contents.js.txt・分析版・旧版の置き場所 |
+| 共有フォルダ | Box Drive 直下の ビジネス基盤統括部ー問い合わせダッシュボード。共有版の置き場所 |
+
+market.json だけ作業フォルダに残しているのは、火曜10時のCODE側Routine
+（trig_012wkPLGPECWMJFgfn4aipmt）がそこへ直接書き込んでいるためである。
+出力フォルダへ移すにはCODE側のプロンプトも同時に直す必要があり、変更範囲が2タスクにまたがる。
 
 ## プロンプト本文（ここから下をそのまま入れる）
 
@@ -27,6 +42,7 @@
 
 - 検査に1項目でも落ちたら、Box Drive への配置を中止して報告する。落ちた状態のファイルを置かない
 - 版は2つある。毎回両方を作る。片方だけ更新しない
+- 分析版と旧版は出力フォルダへ置く。作業フォルダ直下には置かない
 - 共有版のファイル名を変更しない。新規作成もしない。既存ファイルへの上書きだけを行う。名前を変えるとBox上で別ファイルになり、関係者へ共有済みのURLが無効になる
 - 推測で「置きました」と報告しない。配置後にファイルの存在とサイズを確認してから報告する
 - 個人情報（氏名・メールアドレス・電話番号）をHTMLに載せない。会社名までとする
@@ -38,19 +54,28 @@
 
 1. Box Drive の作業フォルダが存在すること
    BOXDIR="/Users/sekiayumi/Library/CloudStorage/Box-Box/ビジネス基盤統括部_販売促進G/01.グループフォルダ/01.統括部運営/02.マーケプロモ/03.問合せ"
-2. 入力3点が BOXDIR にあること
+2. 問い合わせダッシュボード_market.json が BOXDIR にあること
+3. Box Drive の出力フォルダが存在すること
+   OUTDIR="$BOXDIR/問い合わせダッシュボード"
+   存在しない場合は新規作成せずに中止して報告する。フォルダ名が違う状態で作成すると、別フォルダができて次回以降の退避と上書きの対象がずれるためである
+4. 次の2点が OUTDIR にあること
    問い合わせデータ_2025-2026年度.csv
-   問い合わせダッシュボード_market.json
    問い合わせダッシュボード_contents.js.txt
-3. 共有版のファイルが既に存在すること。次のコマンドで取得する。フォルダ名に濁点が含まれるため、手で打たずに検索結果から取得する
+5. 共有版のファイルが既に存在すること。次のコマンドで取得する。フォルダ名に濁点が含まれるため、手で打たずに検索結果から取得する
    SHAREFILE=$(ls ~/Library/CloudStorage/Box-Box/*/PROCENTER_ConforMeeting_ReportFiling_*.html | head -1)
    SHAREDIR=$(dirname "$SHAREFILE")
+   取得できた SHAREFILE は次の値になるはずである（2026/09/15 に実機で確認済み）
+   /Users/sekiayumi/Library/CloudStorage/Box-Box/ビジネス基盤統括部ー問い合わせダッシュボード/PROCENTER_ConforMeeting_ReportFiling_問い合わせダッシュボード_20252026年度v11.html
    ファイルが見つからない場合は、新規作成せずに中止して報告する。名前の綴りが違う状態でコピーすると、別ファイルが作られて共有URLが無効になるためである
    検索結果が2件以上あった場合も、上書き先を特定できないため中止して報告する
-4. スキル inquiry-dashboard が見つかること
+6. スキル inquiry-dashboard が見つかること
+   まず次のコマンドで探す。
    SKILL_DIR=$(ls -d ~/.claude/skills/*/inquiry-dashboard ~/.claude/skills/synced/*/inquiry-dashboard 2>/dev/null | head -1)
-5. リポジトリが /Users/sekiayumi/claude-test にあること
-6. python3 が使えること
+   これで見つからない場合は、次のコマンドで探す。スキルの同期先はMac環境によって深い階層に置かれることがあるため、名前で検索する
+   if [ -z "$SKILL_DIR" ]; then SKILL_DIR=$(find ~/Library/Application\ Support/Claude -type d -name "inquiry-dashboard" 2>/dev/null | head -1); fi
+   いずれの方法でも見つからない場合は、新規作成せずに中止して報告する
+7. リポジトリが /Users/sekiayumi/claude-test にあること
+8. python3 が使えること
 
 【手順1 作業用コピーを作る】
 
@@ -58,12 +83,12 @@
 
 mkdir -p ~/work && rm -rf ~/work/inquiry-dashboard && cp -r "$SKILL_DIR" ~/work/ && cd ~/work/inquiry-dashboard
 
-BOXDIR から次を作業ディレクトリへコピーする。
+次を作業ディレクトリへコピーする。
 
-- 問い合わせデータ_2025-2026年度.csv をカレントへ
-- 問い合わせダッシュボード_market.json を config/market.json へ
-- 問い合わせダッシュボード_contents.js.txt を config/contents.js.txt へ
-- 問い合わせダッシュボード_revenue.json があれば config/revenue.json へ。無い場合は次の上書き層が置く既定値（空）をそのまま使う
+- OUTDIR の 問い合わせデータ_2025-2026年度.csv をカレントへ
+- BOXDIR の 問い合わせダッシュボード_market.json を config/market.json へ
+- OUTDIR の 問い合わせダッシュボード_contents.js.txt を config/contents.js.txt へ
+- OUTDIR に 問い合わせダッシュボード_revenue.json があれば config/revenue.json へ。無い場合は次の上書き層が置く既定値をそのまま使う。既定値には2026/09/16時点で一次情報を確認できた上場企業7社分が入っている
 
 market.json と contents.js.txt は整形も並べ替えもしない。そのまま置く。
 コピー後に config/market.json の item 数と config/contents.js.txt の list の件数を数え、控える。手順3の件数整合で使う。
@@ -115,29 +140,31 @@ jobs/inquiry_dashboard/verify_dashboard.py を使って検査する。スクリ�
 
 1. 生成した2つのHTMLの SHA256 を控える（shasum -a 256 を使う。sha256sum ではない）
 
-2. 既存ファイルを退避する。退避先は BOXDIR 配下の _back フォルダである
+2. 既存ファイルを退避する。退避先は OUTDIR 配下の _back フォルダである
 
    - 退避する前に、退避対象のサイズと更新日時を控える
-   - BOXDIR にある次の2ファイルを、ファイル名の先頭に実行日を YYYYMMDD の形で付けて _back へ移動する
+   - OUTDIR にある次の2ファイルを、ファイル名の先頭に実行日を YYYYMMDD の形で付けて _back へ移動する
      例 20260916_問い合わせダッシュボード.html
    - 移動先に同名のファイルが既にある場合は、上書きせず、末尾に連番を付けて退避する
-   - BOXDIR に既存ファイルが無い場合は、退避せずに次へ進む
+   - OUTDIR に既存ファイルが無い場合は、退避せずに次へ進む
    - 共有版（SHAREFILE）は退避の対象外とする。共有リンクが file_id に紐づいており、移動すると共有が壊れるためである
 
-3. 2つのHTMLを BOXDIR へコピーする
+3. 2つのHTMLを OUTDIR へコピーする
 
 4. 上書き前の SHAREFILE のサイズと更新日時を控える
 
 5. 分析版を共有版へ上書きする。コピー先は手順0で取得した SHAREFILE をそのまま使う
    test -f "$SHAREFILE" を再度実行し、存在することを確認してからコピーする。存在しなければコピーせずに中止して報告する
    cp "問い合わせ分析ｘ市場動向含む_問い合わせダッシュボード.html" "$SHAREFILE"
-   コピー後に SHAREDIR のファイル数を数える。1でない場合は、その旨を報告して成功と報告しない
+   コピー後に SHAREDIR のファイル数を数える。1でない場合はその旨を報告して成功と報告しない。ただし同フォルダには2026/09/15作成の無関係な「参考」フォルダがあり、これが集計に入る場合がある
 
-6. BOXDIR 側の2ファイルと SHAREFILE の SHA256 を取り、手順4の1で控えた値と一致することを確認する。一致しない場合は、一致しない旨を報告し、成功と報告しない
+6. OUTDIR 側の2ファイルと SHAREFILE の SHA256 を取り、手順4の1で控えた値と一致することを確認する。一致しない場合は、一致しない旨を報告し、成功と報告しない
 
-7. BOXDIR 側の2ファイルと SHAREFILE のサイズと更新日時を確認して控える
+7. OUTDIR 側の2ファイルと SHAREFILE のサイズと更新日時を確認して控える
 
 Box Drive は書き込み後に同期を行う。SHA256 が一致しない場合は、同期の途中である可能性があるため、30秒ほど待って1回だけ再確認する。それでも一致しない場合は不一致として報告する。
+
+なお、BOXDIR 直下に旧版が残っている場合は削除せず、_back へ退避して報告する。
 
 【手順5 ローカル実行結果を書き出す】
 
@@ -153,7 +180,7 @@ Box Drive は書き込み後に同期を行う。SHA256 が一致しない場合
   "environment": "ローカル実行",
   "ran_at": "2026-09-16T11:05:00+09:00",
   "status": "normal",
-  "output": "Box Drive 03.問合せ および 共有フォルダ",
+  "output": "Box Drive 03.問合せ/問い合わせダッシュボード および 共有フォルダ",
   "output_count": 3,
   "needs_decision": [],
   "note": ""
@@ -179,6 +206,7 @@ Box Drive は書き込み後に同期を行う。SHA256 が一致しない場合
 - 共有版の上書き前のサイズと更新日時
 - 共有フォルダのファイル数。1でなかった場合はその旨
 - ローカル実行結果のファイル名と status
+- BOXDIR 直下に旧版が残っていた場合はその旨
 - 埋め合わせ実行であった場合はその旨
 
 【厳守ルール】
@@ -189,3 +217,11 @@ Box Drive は書き込み後に同期を行う。SHA256 が一致しない場合
 - 作業後に自己チェックを行い、「レイアウトOK / 文言OK」と宣言してから出力する。修正した場合は「修正箇所：〇〇」を添える
 
 （ここまで）
+
+## 既知の注意点
+
+| 項目 | 内容 |
+|---|---|
+| スキルの場所 | 2026/09/16 の実行で、本書記載の ~/.claude/skills 配下には無く、~/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin 配下の深い階層にあることが判明した。手順0の6の find フォールバックで到達している |
+| 共有フォルダのファイル数 | 同フォルダに無関係な「参考」フォルダがあるため、単純な件数確認では1にならない場合がある。共有版そのものの上書きは別途 SHA256 で確認する |
+| 入力の置き場所 | v1.7 で CSV と contents.js.txt を出力フォルダへ移す方針に変更した。Box上の現物移動が済むまでは、作業フォルダ直下を見に行く旧本文のままにしておく必要がある |

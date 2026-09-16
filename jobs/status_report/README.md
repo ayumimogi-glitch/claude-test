@@ -3,7 +3,7 @@
 実行状況の統合レポートに関するジョブを置く。
 
 正本は マスターナレッジ の
-`claude/20260916_横断_実行状況の統合レポート_運用手順書_v1_2.md` である。
+`claude/20260916_横断_実行状況の統合レポート_運用手順書_v1_3.md` である。
 記述が食い違った場合は運用手順書を優先する。
 
 ## 分担のどこにあたるか
@@ -61,7 +61,7 @@ want = style.get("font_stack", "")
 want = style.get("canvas", {}).get("width_px")
 ```
 
-2026/09/16 時点で ChatGPT は正本 v1_2 を取得できていない。
+2026/09/16 時点で ChatGPT は正本 v1_3 を取得できていない。
 作図の指定については、正本が読めなくても JSON を見れば足りる。
 
 ## write_run_result.py
@@ -121,7 +121,7 @@ python3 verify_report.py --html 2026-09-16_横断_実行状況レポート.html 
 | 高 | 丸数字・矢印記号・エムダッシュ・全角数字・置換文字を使っていない |
 | 高 | 配色が palette の範囲内である（見出し帯の白文字は許容する） |
 | 高 | font-family が font_stack と一致する |
-| 高 | summary の4つの値が本文にある |
+| 高 | summary の4つの値（total_tasks・normal・failed_or_missing・needs_decision）が本文にある |
 | 高 | 要判断の表題と3択が本文にある |
 | 高 | 埋め込みJSONが元JSONと一致する |
 | 中 | 書体を複数並べている |
