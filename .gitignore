@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 .secrets/
 .urgent_check_state.json
+.state/
