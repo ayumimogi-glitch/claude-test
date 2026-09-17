@@ -54,6 +54,9 @@ SHARE_GLOB = os.path.expanduser(
 ANALYSIS_NAME = "問い合わせ分析ｘ市場動向含む_問い合わせダッシュボード.html"
 SIMPLE_NAME = "問い合わせダッシュボード.html"
 BACK_DIRNAME = "_back"
+# 生成物とHTMLの退避先は BOXDIR 直下ではなく、その配下の出力フォルダである。
+# 2026/09/17、BOXDIR直下に誤って置かれた事象を受けて追加した。
+OUTDIR_SUBDIR = "問い合わせダッシュボード"
 
 RESULT_NAME_FMT = "%Y%m%d_横断_ローカル実行結果_inquiry-dashboard-local.json"
 TASK_ID = "inquiry-dashboard-local"
@@ -120,15 +123,15 @@ def assert_inside(path, boxdir, sharefile):
     raise Failed("書き込みが許可されない場所です: %s" % path)
 
 
-def backup_existing(boxdir, sharefile, today, dry_run, log):
-    """BOXDIR にある既存の2ファイルを _back へ退避する。共有版は対象にしない。
+def backup_existing(boxdir, outdir, sharefile, today, dry_run, log):
+    """出力フォルダ（OUTDIR）にある既存の2ファイルを OUTDIR/_back へ退避する。共有版は対象にしない。
 
     共有版を動かすと共有リンクが切れる。file_id に紐づいているためである。
     """
-    backdir = os.path.join(boxdir, BACK_DIRNAME)
+    backdir = os.path.join(outdir, BACK_DIRNAME)
     moved = []
     for name in (ANALYSIS_NAME, SIMPLE_NAME):
-        src = os.path.join(boxdir, name)
+        src = os.path.join(outdir, name)
         if not os.path.isfile(src):
             log("退避なし（既存ファイルがありません）: %s" % name)
             continue
@@ -204,7 +207,11 @@ def write_result_json(boxdir, status, output_count, needs_decision, note, dry_ru
 
 
 def place(work_dir, boxdir, sharefile, dry_run, log):
-    """生成物2件を BOXDIR へ置き、分析版で共有版を上書きする。"""
+    """生成物2件を出力フォルダ（OUTDIR）へ置き、分析版で共有版を上書きする。"""
+    outdir = os.path.join(boxdir, OUTDIR_SUBDIR)
+    if not os.path.isdir(outdir):
+        raise Abort("出力フォルダがありません。新規作成はしません: %s" % outdir)
+
     src_analysis = os.path.join(work_dir, ANALYSIS_NAME)
     src_simple = os.path.join(work_dir, SIMPLE_NAME)
     for path in (src_analysis, src_simple):
@@ -218,10 +225,10 @@ def place(work_dir, boxdir, sharefile, dry_run, log):
     log("  旧版   %s  %s" % (want_simple[:16], stat_line(src_simple)))
 
     today = datetime.date.today().strftime("%Y%m%d")
-    moved = backup_existing(boxdir, sharefile, today, dry_run, log)
+    moved = backup_existing(boxdir, outdir, sharefile, today, dry_run, log)
 
-    dst_analysis = os.path.join(boxdir, ANALYSIS_NAME)
-    dst_simple = os.path.join(boxdir, SIMPLE_NAME)
+    dst_analysis = os.path.join(outdir, ANALYSIS_NAME)
+    dst_simple = os.path.join(outdir, SIMPLE_NAME)
     for src, dst in ((src_analysis, dst_analysis), (src_simple, dst_simple)):
         assert_inside(dst, boxdir, sharefile)
         if dry_run:
