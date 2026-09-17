@@ -224,7 +224,20 @@ def notify_teams(payload, dry_run, log):
         log("Teams通知する（実行しない）:\n%s" % text)
         return
 
-    body = json.dumps({"text": text}, ensure_ascii=False).encode("utf-8")
+    # このWebhookは「Webhookアラートをチャネルに送信する」テンプレートで作成されており、
+    # 受け取ったJSON自体がアダプティブカードであることを前提にしている。単純な
+    # {"text": ...} では 'type' が 'AdaptiveCard' でないため失敗する
+    # （2026/09/17、実機での実行履歴で確認）。行ごとにTextBlockを分けて送る
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {"type": "TextBlock", "text": line, "wrap": True}
+            for line in lines
+        ],
+    }
+    body = json.dumps(card, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         url, data=body, headers={"Content-Type": "application/json"}, method="POST")
     try:
