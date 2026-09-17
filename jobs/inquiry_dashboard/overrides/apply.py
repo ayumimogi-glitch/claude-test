@@ -56,6 +56,16 @@ const REV_MAP = (() => {
 })();
 const revOf = c => REV_MAP[revNorm(c)] || null;"""
 
+# 前回生成からの差分（更新履歴）。急ぎ検知の日次実行と火曜の定例生成のどちらでも
+# 同じ形式で埋め込む。new_count が 0 のときは画面側で区画ごと隠す。
+# REVENUE_BLOCK の末尾（revOf の定義）を目印に、別のパッチとして追加する。
+# REVENUE_BLOCK 自体は変更しない。既に上書き済みのファイルへ当てたときに
+# REVENUE_BLOCK 全体が二重に入ってしまうのを避けるため。2026/09/17 追加。
+UPDATELOG_CONST = """const revOf = c => REV_MAP[revNorm(c)] || null;
+/* 前回生成からの差分（更新履歴）。急ぎ検知の日次実行と火曜の定例生成のどちらでも
+   同じ形式で埋め込む。new_count が 0 のときは画面側で区画ごと隠す */
+const UPDATELOG = /*__UPDATELOG__*/;"""
+
 DETAIL_COLS = """    {h:'年商レンジ', f:r=>{ const v = revOf(r.c); return esc(v ? v.range : '不明'); }},
     {h:'年商の出典', f:r=>{ const v = revOf(r.c); return `<span class="cap">${esc(v ? v.basis : '未取得')}</span>`; }},
     {h:'媒体', f:r=>esc(r.m)},"""
@@ -65,6 +75,37 @@ CSV_ROW_NEW = (
     "    lines.push([r.d, r.p, r.c, r.i, r.rs, rv ? rv.range : '不明', rv ? rv.basis : '未取得',"
     " r.m, r.k, r.f, r.note || '', DATA.sources[r.s]].map(cell).join(',')); });"
 )
+
+# 「直近の更新」区画。ヘッダ直下のバナーの後ろに置く。既定は非表示で、
+# UPDATELOG.new_count が 1件以上のときだけ画面側のJSで表示する。
+UPDATELOG_BANNER = """<div class="banner" id="banner"></div>
+
+<section id="updatelog-section" style="display:none">
+  <h3 class="tblttl" style="margin-top:16px">直近の更新</h3>
+  <p class="cap" id="updatelog-summary" style="margin:0 0 8px"></p>
+  <div class="tblwrap"><table id="tbl-updatelog"></table></div>
+</section>"""
+
+UPDATELOG_RENDER = """  '算出方法は「指標の定義」に記載しています。';
+if (UPDATELOG && UPDATELOG.new_count > 0) {
+  const sec = $('updatelog-section');
+  sec.style.display = '';
+  const prevLabel = UPDATELOG.previous_generated_at
+    ? fmtD(String(UPDATELOG.previous_generated_at).slice(0, 10)) : '不明';
+  $('updatelog-summary').textContent =
+    '前回生成（' + prevLabel + '）から ' + UPDATELOG.new_count + ' 件の新規問い合わせがありました。' +
+    (UPDATELOG.trigger === '急ぎ検知'
+      ? ' このうち急ぎ対応が必要な件があったため、定例（火曜）を待たずに更新しました。' : '');
+  table($('tbl-updatelog'), [
+    {h:'発生日', f:r=>esc(fmtD(r.date))},
+    {h:'製品', f:r=>esc(r.product)},
+    {h:'客先', f:r=>esc(r.company)},
+    {h:'媒体', f:r=>esc(r.medium)},
+    {h:'急ぎ', f:r=>r.urgent ? '<span class="pill hi">急ぎ</span>' : ''},
+    {h:'理由', f:r=>esc((r.urgent_reasons || []).join('、'))},
+  ], UPDATELOG.new_rows || []);
+}
+// 定義文の中の日付も画面表示なのでスラッシュ表記にそろえる"""
 
 PATCHES = [
     (
@@ -101,16 +142,39 @@ PATCHES = [
         CSV_ROW_NEW,
     ),
     (
+        "assets/template.html",
+        "UPDATELOG定数の追加",
+        "const revOf = c => REV_MAP[revNorm(c)] || null;",
+        UPDATELOG_CONST,
+    ),
+    (
+        "assets/template.html",
+        "直近の更新（差分）区画をバナーの後ろへ追加",
+        '<div class="banner" id="banner"></div>',
+        UPDATELOG_BANNER,
+    ),
+    (
+        "assets/template.html",
+        "直近の更新（差分）区画を描画するJS",
+        "  '算出方法は「指標の定義」に記載しています。';\n"
+        "// 定義文の中の日付も画面表示なのでスラッシュ表記にそろえる",
+        UPDATELOG_RENDER,
+    ),
+    (
         "scripts/build_dashboard.py",
         "revenue.json を分析版へ差し込む",
         '            "CONTENTS": load_text(os.path.join(a.config, "contents.js.txt")),',
         '            "CONTENTS": load_text(os.path.join(a.config, "contents.js.txt")),\n'
-        '            "REVENUE": load_text(os.path.join(a.config, "revenue.json")),',
+        '            "REVENUE": load_text(os.path.join(a.config, "revenue.json")),\n'
+        '            "UPDATELOG": load_text(os.path.join(a.config, "update_log.json")),',
     ),
 ]
 
 # 参照データの既定値。作業用コピーに無ければ置く。既にあれば触らない
-CONFIG_FILES = [("revenue.json", "config/revenue.json")]
+CONFIG_FILES = [
+    ("revenue.json", "config/revenue.json"),
+    ("update_log.json", "config/update_log.json"),
+]
 
 
 def apply_patch(work, rel, name, old, new):
