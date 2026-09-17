@@ -7,3 +7,4 @@ data/
 問い合わせ*
 __pycache__/
 *.pyc
+.secrets/

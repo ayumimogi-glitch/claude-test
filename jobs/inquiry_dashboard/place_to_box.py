@@ -42,6 +42,8 @@ import shutil
 import sys
 import time
 import unicodedata
+import urllib.error
+import urllib.request
 
 BOXDIR_RAW = os.path.expanduser(
     "~/Library/CloudStorage/Box-Box/ビジネス基盤統括部_販売促進G"
@@ -60,6 +62,12 @@ OUTDIR_SUBDIR = "問い合わせダッシュボード"
 
 RESULT_NAME_FMT = "%Y%m%d_横断_ローカル実行結果_inquiry-dashboard-local.json"
 TASK_ID = "inquiry-dashboard-local"
+
+# Teams通知用のWebhook URLの置き場所。リポジトリには含めない（.gitignoreで除外済み）。
+# ファイルが無ければ通知そのものをスキップする。2026/09/17 追加。
+TEAMS_WEBHOOK_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), ".secrets", "teams_webhook_url.txt")
+TEAMS_STATUS_LABEL = {"normal": "正常終了", "aborted": "中止", "failed": "失敗"}
 
 # Box Drive は書き込み後に同期する。直後の照合が合わないことがあるため一度だけ待つ。
 RESYNC_WAIT_SEC = 30
@@ -180,6 +188,52 @@ def verify_copies(expected, boxdir, sharefile, log):
     log("SHA256 は3ファイルとも一致しました。")
 
 
+def load_teams_webhook_url():
+    """Teams通知用のWebhook URLを読む。ファイルが無ければ None を返す（通知の対象外）。"""
+    if not os.path.isfile(TEAMS_WEBHOOK_PATH):
+        return None
+    with open(TEAMS_WEBHOOK_PATH, "r", encoding="utf-8") as f:
+        url = f.read().strip()
+    return url or None
+
+
+def notify_teams(payload, dry_run, log):
+    """実行結果をTeamsへ通知する。
+
+    通知はあくまで付随機能であり、失敗しても実行結果JSONの記録（正本）には影響させない。
+    そのため、ここで起きた例外は外へ投げず、ログに残すだけにする。
+    """
+    url = load_teams_webhook_url()
+    if not url:
+        log("Teams通知: 設定なし（.secrets/teams_webhook_url.txt が見つからないためスキップ）")
+        return
+
+    status = payload["status"]
+    lines = [
+        "問い合わせダッシュボード 定期実行の通知",
+        "状態: %s" % TEAMS_STATUS_LABEL.get(status, status),
+        "実行時刻: %s" % payload["ran_at"],
+    ]
+    if payload.get("note"):
+        lines.append("補足: %s" % payload["note"])
+    for item in payload.get("needs_decision", []):
+        lines.append("要判断: %s（%s）" % (item.get("title", ""), item.get("detail", "")))
+    text = "\n".join(lines)
+
+    if dry_run:
+        log("Teams通知する（実行しない）:\n%s" % text)
+        return
+
+    body = json.dumps({"text": text}, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            log("Teams通知を送信しました（HTTP %s）。" % resp.status)
+    except Exception as e:
+        log("Teams通知の送信に失敗しました（実行結果の記録には影響しません）: %s" % e)
+
+
 def write_result_json(boxdir, status, output_count, needs_decision, note, dry_run, log):
     """実行結果のJSONを BOXDIR へ書き出す。キーは増やさない。"""
     now = datetime.datetime.now(
@@ -198,11 +252,13 @@ def write_result_json(boxdir, status, output_count, needs_decision, note, dry_ru
     if dry_run:
         log("実行結果を書き出す（実行しない）: %s" % path)
         log(json.dumps(payload, ensure_ascii=False, indent=2))
+        notify_teams(payload, dry_run, log)
         return path
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
         f.write("\n")
     log("実行結果を書き出しました: %s（status=%s）" % (os.path.basename(path), status))
+    notify_teams(payload, dry_run, log)
     return path
 
 
