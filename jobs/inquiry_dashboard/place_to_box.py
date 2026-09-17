@@ -197,11 +197,74 @@ def load_teams_webhook_url():
     return url or None
 
 
-def notify_teams(payload, dry_run, log):
+def load_update_log(work_dir):
+    """前回生成からの差分（config/update_log.json）を読む。
+
+    無い場合、または壊れている場合は None を返す。営業向けの通知内容を組み立てる
+    材料であり、通知はあくまで付随機能であるため、ここでの失敗は外へ投げない。
+    """
+    if not work_dir:
+        return None
+    path = os.path.join(work_dir, "config", "update_log.json")
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def build_update_lines(payload, update_log):
+    """新規行（急ぎ・更新）の通知本文を組み立てる。新規行が無ければ None を返す（送らない）。
+
+    列の順序は分析版HTMLの「直近の更新」区画（overrides/apply.pyのUPDATELOG_RENDER）と
+    そろえる: 発生日・製品・客先・媒体・急ぎ・理由。2026/09/17、営業からの要望
+    （定期実行された旨の通知は不要。急ぎ対応の通知と、分析版の更新内容が分かる通知が欲しい）
+    を受けて追加した。
+    """
+    new_rows = update_log.get("new_rows") or []
+    if not new_rows:
+        return None
+
+    urgent_rows = [r for r in new_rows if r.get("urgent")]
+    if urgent_rows:
+        title = "問い合わせダッシュボード 急ぎ対応の通知"
+    else:
+        title = "問い合わせ分析ｘ市場動向含む_問い合わせダッシュボード 更新の通知"
+
+    lines = [
+        title,
+        "実行時刻: %s" % payload["ran_at"],
+        "新規: %d件（うち急ぎ %d件）" % (len(new_rows), len(urgent_rows)),
+    ]
+    if payload.get("note"):
+        lines.append("補足: %s" % payload["note"])
+    for row in new_rows:
+        mark = "急ぎ" if row.get("urgent") else "通常"
+        reason = ""
+        if row.get("urgent"):
+            reasons = row.get("urgent_reasons") or []
+            if reasons:
+                reason = "（理由: %s）" % "、".join(reasons)
+        lines.append(
+            "[%s] %s / %s / %s / %s%s"
+            % (mark, row.get("date", ""), row.get("product", ""),
+               row.get("company", ""), row.get("medium", ""), reason))
+    return lines
+
+
+def notify_teams(payload, dry_run, log, update_log=None):
     """実行結果をTeamsへ通知する。
 
     通知はあくまで付随機能であり、失敗しても実行結果JSONの記録（正本）には影響させない。
     そのため、ここで起きた例外は外へ投げず、ログに残すだけにする。
+
+    正常終了（status=normal）で、前回生成からの新規行（update_log）がある場合は、
+    急ぎ対応の通知、または分析版の更新内容を明示する通知を送る。新規行が無い場合は、
+    営業にとって不要な「定期実行された」旨の通知は送らない（2026/09/17、営業からの
+    要望により変更）。中止・失敗、またはupdate_logが読めなかった場合は、従来どおり
+    運用向けの実行結果の通知を送る。
     """
     url = load_teams_webhook_url()
     if not url:
@@ -209,15 +272,24 @@ def notify_teams(payload, dry_run, log):
         return
 
     status = payload["status"]
-    lines = [
-        "問い合わせダッシュボード 定期実行の通知",
-        "状態: %s" % TEAMS_STATUS_LABEL.get(status, status),
-        "実行時刻: %s" % payload["ran_at"],
-    ]
-    if payload.get("note"):
-        lines.append("補足: %s" % payload["note"])
-    for item in payload.get("needs_decision", []):
-        lines.append("要判断: %s（%s）" % (item.get("title", ""), item.get("detail", "")))
+    lines = None
+    if status == "normal" and update_log is not None:
+        lines = build_update_lines(payload, update_log)
+        if lines is None:
+            log("Teams通知: 新規行が無いため送信しません（new_count=0）。")
+            return
+
+    if lines is None:
+        lines = [
+            "問い合わせダッシュボード 実行結果の通知",
+            "状態: %s" % TEAMS_STATUS_LABEL.get(status, status),
+            "実行時刻: %s" % payload["ran_at"],
+        ]
+        if payload.get("note"):
+            lines.append("補足: %s" % payload["note"])
+        for item in payload.get("needs_decision", []):
+            lines.append("要判断: %s（%s）" % (item.get("title", ""), item.get("detail", "")))
+
     text = "\n".join(lines)
 
     if dry_run:
@@ -247,8 +319,13 @@ def notify_teams(payload, dry_run, log):
         log("Teams通知の送信に失敗しました（実行結果の記録には影響しません）: %s" % e)
 
 
-def write_result_json(boxdir, status, output_count, needs_decision, note, dry_run, log):
-    """実行結果のJSONを BOXDIR へ書き出す。キーは増やさない。"""
+def write_result_json(boxdir, status, output_count, needs_decision, note, dry_run, log,
+                       update_log=None):
+    """実行結果のJSONを BOXDIR へ書き出す。キーは増やさない。
+
+    update_log は Teams通知の内容を組み立てるためだけに使う。実行結果JSON自体の
+    キーには含めない（キーは増やさない、という既存の方針を保つ）。
+    """
     now = datetime.datetime.now(
         datetime.timezone(datetime.timedelta(hours=9)))
     payload = {
@@ -265,13 +342,13 @@ def write_result_json(boxdir, status, output_count, needs_decision, note, dry_ru
     if dry_run:
         log("実行結果を書き出す（実行しない）: %s" % path)
         log(json.dumps(payload, ensure_ascii=False, indent=2))
-        notify_teams(payload, dry_run, log)
+        notify_teams(payload, dry_run, log, update_log)
         return path
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
         f.write("\n")
     log("実行結果を書き出しました: %s（status=%s）" % (os.path.basename(path), status))
-    notify_teams(payload, dry_run, log)
+    notify_teams(payload, dry_run, log, update_log)
     return path
 
 
@@ -420,7 +497,8 @@ def main():
                           args.note, args.dry_run, log)
         return 1
 
-    write_result_json(boxdir, "normal", 3, [], args.note, args.dry_run, log)
+    write_result_json(boxdir, "normal", 3, [], args.note, args.dry_run, log,
+                      update_log=load_update_log(work_dir))
     log("配置まで完了しました。")
     return 0
 
